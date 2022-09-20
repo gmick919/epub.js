@@ -133,6 +133,10 @@ class IframeView {
 			this.supportsSrcdoc = false;
 		}
 
+		// lingVis: in iOS WKWebView, iframe.srcdoc exists but does not work, so we just use
+		// the document.write method for loading, it always works
+		this.supportsSrcdoc = false;
+
 		if (!this.settings.method) {
 			this.settings.method = this.supportsSrcdoc ? "srcdoc" : "write";
 		}
