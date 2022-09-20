@@ -305,8 +305,17 @@ class IframeView {
 			// Get the width of the text
 			width = this.contents.textWidth();
 
-			if (width % this.layout.pageWidth > 0) {
-				width = Math.ceil(width / this.layout.pageWidth) * this.layout.pageWidth;
+			let pageWidth = this.layout.pageWidth;
+			let rem = width % pageWidth;
+			if (rem > 0) {
+				// lingVis: textWidth() calculating content width using borders/margins/padding
+				// sometimes adds a small extra for some unknown reasons, a pixel or so, adding an empty page
+				// in the end of a section. To avoid that, ignore small overflow amounts:
+				if (rem / pageWidth < 0.02) {
+					width = Math.floor(width / pageWidth) * pageWidth;
+				} else {
+					width = Math.ceil(width / pageWidth) * pageWidth;
+				}
 			}
 
 			if (this.settings.forceEvenPages) {
