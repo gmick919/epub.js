@@ -504,10 +504,7 @@ class EpubCFI {
 		}
 
 		function getNodeElementBySegment(segment, element) {
-			let htmlNode = node;
-			while (htmlNode && htmlNode.tagName !== "HTML") {
-				htmlNode = htmlNode.parentNode;
-			}
+			let htmlNode = node.ownerDocument.documentElement;
 			for (let i = 0; i < segment.length; i++) {
 				let segmentChildNodes = findChildren(htmlNode);
 				htmlNode = segmentChildNodes[segment[i].index];
