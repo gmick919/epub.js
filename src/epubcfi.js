@@ -480,13 +480,13 @@ class EpubCFI {
 
 		}
 
-		this.patchPolyEpubCfi(node, segment);
+		this.pathToPatch(node, segment);
 		return segment;
 	}
 
 	// This is a patch for epub cfi to correctly calculate the cfi
 	// with considering the polyLingVis sdk injection to the DOM
-	patchPolyEpubCfi(node, segment) {
+	pathToPatch(node, segment) {
 		const steps = segment.steps;
 		// Take the previous element (before the last one) from the path steps to element calculated by epub.js
 		const elementBeforeText = steps[steps.length - 2];
@@ -893,7 +893,7 @@ class EpubCFI {
 		var len = steps.length;
 		var i;
 
-		for (i = 0; i < len; i++) {
+		for (i = 0; i < steps.length; i++) {
 			step = steps[i];
 
 			if(step.type === "element") {
@@ -904,6 +904,9 @@ class EpubCFI {
 				}
 				else {
 					children = container.children || findChildren(container);
+					if (i === len - 2) {
+						this.walkToNodePatch(steps, step, children, i, len);
+					}
 					container = children[step.index];
 				}
 			} else if(step.type === "text") {
@@ -920,22 +923,51 @@ class EpubCFI {
 
 		return container;
 	}
+	
+	walkToNodePatch(steps, step, children, index){
+		if (!children) return;
+		const nextElement = children[step.index];
+		if (!nextElement) return;
+		const nextElementNodes = nextElement.children || findChildren(nextElement);
+		const isPolyLingVis = [...nextElementNodes].some(x => [...x.classList].some(el => el.includes("polyLingVis")));
+		// 1. Found a polyLingVis parent by checking if some children have the class polyLingVis 
+		if (isPolyLingVis) {
+			let textSize = 0;
+			let foundedNode = null;
+			// 2. Get the node that comes exactly after the path offset 
+			for (const node of nextElement.childNodes) {
+				if (node.nodeType === TEXT_NODE) {
+					textSize += node.textContent.length;
+				} else {
+					textSize += node.innerText.length;
+				}
+
+				if (textSize >= this.path.terminal.offset) {
+					foundedNode = node.nextSibling;
+					break;
+				}
+			}
+			
+			if (foundedNode) {
+				// 3. After getting the node, put it in the steps array and nullify offset 
+				const indexNode = [...nextElementNodes].findIndex(x => x === foundedNode);
+				steps.splice(index + 1, 0, { type: "element", index: indexNode, id: null });
+				this.path.terminal.offset = 0;
+			}
+		}
+
+	}
+	
 
 	findNode(steps, _doc, ignoreClass) {
 		var doc = _doc || document;
-		var container;
-		var xpath;
 
-		if(!ignoreClass && typeof doc.evaluate != "undefined") {
-			xpath = this.stepsToXpath(steps);
-			container = doc.evaluate(xpath, doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-		} else if(ignoreClass) {
-			container = this.walkToNode(steps, doc, ignoreClass);
-		} else {
-			container = this.walkToNode(steps, doc);
+		// Walk by doc.evaluate is removed intentionally due to navigation manually 
+		// for having possibility to check for polyLingVis element
+		if (ignoreClass){
+			return this.walkToNode(steps, doc, ignoreClass);
 		}
-
-		return container;
+		return this.walkToNode(steps,doc);
 	}
 
 	fixMiss(steps, offset, _doc, ignoreClass) {
