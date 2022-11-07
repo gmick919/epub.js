@@ -480,8 +480,59 @@ class EpubCFI {
 
 		}
 
-
+		this.patchPolyEpubCfi(node, segment);
 		return segment;
+	}
+
+	// This is a patch for epub cfi to correctly calculate the cfi
+	// with considering the polyLingVis sdk injection to the DOM
+	patchPolyEpubCfi(node, segment) {
+		const steps = segment.steps;
+		// Take the previous element (before the last one) from the path steps to element calculated by epub.js
+		const elementBeforeText = steps[steps.length - 2];
+		const nodeElement = getNodeElementBySegment(steps, elementBeforeText);
+		const isNodeElementLingVisElement = [...nodeElement.classList].some(x => x.includes("polyLingVis"));
+		if (isNodeElementLingVisElement) {
+			// If the previous element is our polyLingVis element, 
+			// calculate the offset 
+			const parentElement = nodeElement.parentElement;
+			const offsetCount = getTextBeforeElement(parentElement, nodeElement);
+			// ...and remove this polyLingVis element from the steps
+			const indexToRemove = steps.findIndex(x => x === elementBeforeText);
+			steps.splice(indexToRemove, 1);
+			segment.terminal.offset = offsetCount;
+		}
+
+		function getNodeElementBySegment(segment, element) {
+			let htmlNode = node;
+			while (htmlNode && htmlNode.tagName !== "HTML") {
+				htmlNode = htmlNode.parentNode;
+			}
+			for (let i = 0; i < segment.length; i++) {
+				let segmentChildNodes = findChildren(htmlNode);
+				htmlNode = segmentChildNodes[segment[i].index];
+				if (segment[i] === element) {
+					return htmlNode;
+				}
+			}
+			return htmlNode;
+		}
+
+		function getTextBeforeElement(parent, child) {
+			let elements;
+			for (let i = 0; i < parent.childNodes.length; i++) {
+				if (parent.childNodes[i] === child) {
+					elements = [...parent.childNodes].slice(0, i);
+					break;
+				}
+			}
+			return elements.map(x => {
+				if (x.nodeType === Node.TEXT_NODE) {
+					return x.nodeValue;
+				}
+				return x.innerText;
+			}).filter(Boolean).join("").length;
+		}
 	}
 
 	equalStep(stepA, stepB) {
