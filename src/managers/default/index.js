@@ -280,9 +280,11 @@ class DefaultViewManager {
 			}
 
 			if(target) {
-				let offset = visible.locationOf(target);
-				let width = visible.width();
-				this.moveTo(offset, width);
+				try {
+					let offset = visible.locationOf(target);
+					let width = visible.width();
+					this.moveTo(offset, width);
+				} catch (e) {}
 			}
 
 			displaying.resolve();
@@ -302,9 +304,11 @@ class DefaultViewManager {
 
 				// Move to correct place within the section, if needed
 				if(target) {
-					let offset = view.locationOf(target);
-					let width = view.width();
-					this.moveTo(offset, width);
+					try {
+						let offset = view.locationOf(target);
+						let width = view.width();
+						this.moveTo(offset, width);
+					} catch (e) {}
 				}
 
 			}.bind(this), (err) => {
