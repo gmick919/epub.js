@@ -941,10 +941,12 @@ class EpubCFI {
 	walkToNodePatch(steps, step, children, index){
 		if (!children) return;
 		const nextElement = children[step.index];
+		const afterNextStep = steps[index + 1];
 		if (!nextElement) return;
 		const nextElementNodes = nextElement.children || findChildren(nextElement);
 		const isPolyLingVis = [...nextElementNodes].some(x => [...x.classList].some(el => el.includes("polyLingVis")));
-		// 1. Found a polyLingVis parent by checking if some children have the class polyLingVis 
+		// 1. Found a polyLingVis parent by checking if some children have the class polyLingVis
+		let notOurElementIndex = 0;
 		if (isPolyLingVis) {
 			let textSize = 0;
 			let foundedNode = null;
@@ -955,8 +957,11 @@ class EpubCFI {
 				} else {
 					textSize += node.innerText.length;
 				}
-
-				if (textSize >= this.path.terminal.offset) {
+				if (node.nodeType !== TEXT_NODE && !this.isLingVisElement(node)){
+					textSize = 0;
+					notOurElementIndex++;
+				}
+				if (notOurElementIndex === afterNextStep.index && textSize >= this.path.terminal.offset) {
 					foundedNode = node.nextSibling;
 					break;
 				}
@@ -966,6 +971,7 @@ class EpubCFI {
 				// 3. After getting the node, put it in the steps array and nullify offset 
 				const indexNode = [...nextElementNodes].findIndex(x => x === foundedNode);
 				steps.splice(index + 1, 0, { type: "element", index: indexNode, id: null });
+				steps[index+2].index = 0;
 				this.path.terminal.offset = 0;
 			}
 		}
