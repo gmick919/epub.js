@@ -493,24 +493,9 @@ class EpubCFI {
 	// This is a patch for epub cfi to correctly calculate the cfi
 	// with considering the polyLingVis sdk injection to the DOM
 	pathToPatch(node, segment) {
-		// 1. Current element (node) check if it is lingVis element
-		// 2. If it's text node check parent node for lingVisElement (if not -> stop algorithm)
-		// 3. If element (node) is lingVis, take parent node until it will not be lingVis
-		// 4. Now nodeElement is parent element of lingVis element but NOT lingVis
-		// 5. Iterate of all childNodes and...
-		// add vars index and terminalOffset
-		//   1. if childNode is our span element (lingVis) increase terminalOffset with length of innerText
-		//   2. if childNode is textNode increase terminalOffset with length of innerText
-		//   3. if childNode not textNode and not our span element (lingVis) increase index and set terminalOffset=0
-		//   4. if we found our (node) element, stop algorithm
-		// After we have index of our nodeElement and terminalOffset  
-		// NOTE: If our element (node) is not lingVisElement but it's parent contains lingVisElement
-		// (node element could be textNode)
-		
 		// Find our nodeElement parent inside steps (and remove all steps after it)
 		// Use terminalOffset and add text step with our index
 		if (node.nodeType === TEXT_NODE && !this.isLingVisElement(node.parentNode) && ![...node.parentNode.childNodes].some(childNode => this.isLingVisElement(childNode))) return;
-		/*if (node.nodeType === TEXT_NODE && !this.isLingVisElement(node.parentNode)) return;*/
 		if (node.nodeType !== TEXT_NODE && !this.isLingVisElement(node)) return;
 		
 		let parentNode = node.parentNode;
@@ -535,7 +520,7 @@ class EpubCFI {
 		}
 		// It's a fix for issue (that sometimes found node is textNode and it has space before )
 		// So in original text without polyLingVis injection there is no space in found node
-		if (node.nodeType === TEXT_NODE) {
+		if (node.nodeType === TEXT_NODE && !this.isLingVisElement(node.parentNode)) {
 		  let textNode = node.nodeValue;
 			if (textNode.startsWith(" ")){
 				let spaceCount = textNode.length - textNode.trimStart().length;
