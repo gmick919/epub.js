@@ -4,6 +4,7 @@ const ELEMENT_NODE = 1;
 const TEXT_NODE = 3;
 const COMMENT_NODE = 8;
 const DOCUMENT_NODE = 9;
+const POLY_SELECTORS = ["known", "unknown", "estimated", "out-of-vocab", "idiom", "compound", "highlight"].map(x => `polyLingVis-${x}`);
 
 /**
 	* Parsing and creation of EpubCFIs: http://www.idpf.org/epub/linking/cfi/epub-cfi.html
@@ -483,52 +484,83 @@ class EpubCFI {
 		this.pathToPatch(node, segment);
 		return segment;
 	}
-
+	
+	isLingVisElement(node) {
+		if (!node || !node.classList) return false;
+		return [...node.classList].some(className => POLY_SELECTORS.includes(className));
+	}
+	
 	// This is a patch for epub cfi to correctly calculate the cfi
 	// with considering the polyLingVis sdk injection to the DOM
 	pathToPatch(node, segment) {
-		const steps = segment.steps;
-		// Take the previous element (before the last one) from the path steps to element calculated by epub.js
-		const elementBeforeText = steps[steps.length - 2];
-		const nodeElement = getNodeElementBySegment(steps, elementBeforeText);
-		const isNodeElementLingVisElement = [...nodeElement.classList].some(x => x.includes("polyLingVis"));
-		if (isNodeElementLingVisElement) {
-			// If the previous element is our polyLingVis element, 
-			// calculate the offset 
-			const parentElement = nodeElement.parentElement;
-			const offsetCount = getTextBeforeElement(parentElement, nodeElement);
-			// ...and remove this polyLingVis element from the steps
-			const indexToRemove = steps.findIndex(x => x === elementBeforeText);
-			steps.splice(indexToRemove, 1);
-			segment.terminal.offset = offsetCount;
+		// 1. Current element (node) check if it is lingVis element
+		// 2. If it's text node check parent node for lingVisElement (if not -> stop algorithm)
+		// 3. If element (node) is lingVis, take parent node until it will not be lingVis
+		// 4. Now nodeElement is parent element of lingVis element but NOT lingVis
+		// 5. Iterate of all childNodes and...
+		// add vars index and terminalOffset
+		//   1. if childNode is our span element (lingVis) increase terminalOffset with length of innerText
+		//   2. if childNode is textNode increase terminalOffset with length of innerText
+		//   3. if childNode not textNode and not our span element (lingVis) increase index and set terminalOffset=0
+		//   4. if we found our (node) element, stop algorithm
+		// After we have index of our nodeElement and terminalOffset  
+		// NOTE: If our element (node) is not lingVisElement but it's parent contains lingVisElement
+		// (node element could be textNode)
+		
+		// Find our nodeElement parent inside steps (and remove all steps after it)
+		// Use terminalOffset and add text step with our index
+		if (node.nodeType === TEXT_NODE && !this.isLingVisElement(node.parentNode) && ![...node.parentNode.childNodes].some(childNode => this.isLingVisElement(childNode))) return;
+		/*if (node.nodeType === TEXT_NODE && !this.isLingVisElement(node.parentNode)) return;*/
+		if (node.nodeType !== TEXT_NODE && !this.isLingVisElement(node)) return;
+		
+		let parentNode = node.parentNode;
+		while (this.isLingVisElement(parentNode)) {
+			parentNode = parentNode.parentNode;
 		}
-
-		function getNodeElementBySegment(segment, element) {
+		
+		let index = 0;
+		let terminalOffset = 0;
+		for (const childNode of parentNode.childNodes) {
+			if (childNode === node || childNode === node.parentNode) break;
+			if (this.isLingVisElement(childNode)) {
+				terminalOffset += childNode.innerText.length;
+			}
+			if (childNode.nodeType === TEXT_NODE) {
+				terminalOffset += childNode.nodeValue.length;
+			}
+			if (childNode.nodeType !== TEXT_NODE && !this.isLingVisElement(childNode)) {
+				index++;
+				terminalOffset = 0;
+			}
+		}
+		// It's a fix for issue (that sometimes found node is textNode and it has space before )
+		// So in original text without polyLingVis injection there is no space in found node
+		if (node.nodeType === TEXT_NODE) {
+		  let textNode = node.nodeValue;
+			if (textNode.startsWith(" ")){
+				let spaceCount = textNode.length - textNode.trimStart().length;
+				terminalOffset += spaceCount;
+			} 
+		}
+		
+		const stepIndex = getStepIndexByNode(segment.steps, parentNode);
+		if (stepIndex === -1) return;
+		
+		segment.steps.splice(stepIndex + 1, segment.steps.length);
+		segment.steps.push({ id: undefined, tagName: undefined, type: "text", index });
+		segment.terminal.offset = terminalOffset;
+		
+		
+		function getStepIndexByNode(segment, element) {
 			let htmlNode = node.ownerDocument.documentElement;
 			for (let i = 0; i < segment.length; i++) {
 				let segmentChildNodes = findChildren(htmlNode);
 				htmlNode = segmentChildNodes[segment[i].index];
-				if (segment[i] === element) {
-					return htmlNode;
+				if (htmlNode === element) {
+					return i;
 				}
 			}
-			return htmlNode;
-		}
-
-		function getTextBeforeElement(parent, child) {
-			let elements;
-			for (let i = 0; i < parent.childNodes.length; i++) {
-				if (parent.childNodes[i] === child) {
-					elements = [...parent.childNodes].slice(0, i);
-					break;
-				}
-			}
-			return elements.map(x => {
-				if (x.nodeType === Node.TEXT_NODE) {
-					return x.nodeValue;
-				}
-				return x.innerText;
-			}).filter(Boolean).join("").length;
+			return -1;
 		}
 	}
 
