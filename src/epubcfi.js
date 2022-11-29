@@ -440,6 +440,27 @@ class EpubCFI {
 	}
 
 	pathTo(node, offset, ignoreClass) {
+		let oldNode;
+		const patchResult = this.pathToPatchBefore(node);
+		// After we get patched dom we need to replace 'node' and 'offset' params with
+		// patched values (without lingVisInjection), to do this we need find in sanitized dom our node and offset
+		if (patchResult && patchResult[1]) {
+			const walk = document.createTreeWalker(patchResult[1], NodeFilter.SHOW_TEXT, null, false);
+			let res = null;
+			let n;
+			while (n = walk.nextNode()) {
+				if (n.nodeValue.includes(node.nodeValue)) {
+					res = n;
+					break;
+				}
+			}
+			oldNode = node;
+			const originalText = oldNode.nodeValue.substring(8, node.nodeValue.length - 8);
+			node = res;
+			offset = node.nodeValue.indexOf(oldNode.nodeValue);
+			node.nodeValue = node.nodeValue.replace(oldNode.nodeValue, originalText);
+			oldNode.nodeValue = originalText;
+		}
 		var segment = {
 			steps: [],
 			terminal: {
@@ -481,8 +502,49 @@ class EpubCFI {
 
 		}
 
-		this.pathToPatch(node, segment);
+		// After calculating data for preparing cfi (return dom to original state)
+		this.pathToPatchAfter(patchResult);
 		return segment;
+	}
+	
+	pathToPatchAfter(patchResult){
+		if (!patchResult) return;
+		if (patchResult[0] && patchResult[1]) {
+			const [parentNode, copy] = patchResult;
+			copy.replaceWith(parentNode);
+		}
+	}
+	
+	pathToPatchBefore(node) {
+		// 1. Check if the node is a child of a lingVisElement or a lingVisElement itself 
+		if (node.nodeType === TEXT_NODE 
+			&& !this.isLingVisElement(node.parentNode) 
+			&& ![...node.parentNode.childNodes].some(childNode => this.isLingVisElement(childNode))) return;
+		if (node.nodeType !== TEXT_NODE && !this.isLingVisElement(node)) return;
+		// 2. Get the highest parent node that child contains a lingVisElement elements;
+		let parentNode = node.parentNode;
+		while (this.isLingVisElement(parentNode)) {
+			parentNode = parentNode.parentNode;
+		}
+		if ([...parentNode.parentNode.childNodes].some(childNode => this.isLingVisElement(childNode))){
+			parentNode = parentNode.parentNode;
+		}
+		// 3. Here is parentNode is the parent of highlighted block)
+		// Create a copy of parentNode sanitize it and replaceWith itself
+		// Also add to text node a special prefix and suffix (LINGVIS_%%%_LINGVIS);
+		node.nodeValue = `LINGVIS_${node.nodeValue}_LINGVIS`;
+		const copy = parentNode.cloneNode(true);
+		this.sanitizeElementFromPolyLingVis(copy);
+		parentNode.replaceWith(copy);
+		return [parentNode, copy];
+	}
+	
+	sanitizeElementFromPolyLingVis(element) {
+		element.querySelectorAll(
+			POLY_SELECTORS.map(x=>`.${x}`).join(', ')
+		).forEach((el) => {
+			el.outerHTML = el.innerText;
+		});
 	}
 	
 	isLingVisElement(node) {
@@ -490,65 +552,6 @@ class EpubCFI {
 		return [...node.classList].some(className => POLY_SELECTORS.includes(className));
 	}
 	
-	// This is a patch for epub cfi to correctly calculate the cfi
-	// with considering the polyLingVis sdk injection to the DOM
-	pathToPatch(node, segment) {
-		// Find our nodeElement parent inside steps (and remove all steps after it)
-		// Use terminalOffset and add text step with our index
-		if (node.nodeType === TEXT_NODE && !this.isLingVisElement(node.parentNode) && ![...node.parentNode.childNodes].some(childNode => this.isLingVisElement(childNode))) return;
-		if (node.nodeType !== TEXT_NODE && !this.isLingVisElement(node)) return;
-		
-		let parentNode = node.parentNode;
-		while (this.isLingVisElement(parentNode)) {
-			parentNode = parentNode.parentNode;
-		}
-		
-		let index = 0;
-		let terminalOffset = 0;
-		for (const childNode of parentNode.childNodes) {
-			if (childNode === node || childNode === node.parentNode) break;
-			if (this.isLingVisElement(childNode)) {
-				terminalOffset += childNode.innerText.length;
-			}
-			if (childNode.nodeType === TEXT_NODE) {
-				terminalOffset += childNode.nodeValue.length;
-			}
-			if (childNode.nodeType !== TEXT_NODE && !this.isLingVisElement(childNode)) {
-				index++;
-				terminalOffset = 0;
-			}
-		}
-		// It's a fix for issue (that sometimes found node is textNode and it has space before )
-		// So in original text without polyLingVis injection there is no space in found node
-		if (node.nodeType === TEXT_NODE && !this.isLingVisElement(node.parentNode)) {
-		  let textNode = node.nodeValue;
-			if (textNode.startsWith(" ")){
-				let spaceCount = textNode.length - textNode.trimStart().length;
-				terminalOffset += spaceCount;
-			} 
-		}
-		
-		const stepIndex = getStepIndexByNode(segment.steps, parentNode);
-		if (stepIndex === -1) return;
-		
-		segment.steps.splice(stepIndex + 1, segment.steps.length);
-		segment.steps.push({ id: undefined, tagName: undefined, type: "text", index });
-		segment.terminal.offset = terminalOffset;
-		
-		
-		function getStepIndexByNode(segment, element) {
-			let htmlNode = node.ownerDocument.documentElement;
-			for (let i = 0; i < segment.length; i++) {
-				let segmentChildNodes = findChildren(htmlNode);
-				htmlNode = segmentChildNodes[segment[i].index];
-				if (htmlNode === element) {
-					return i;
-				}
-			}
-			return -1;
-		}
-	}
-
 	equalStep(stepA, stepB) {
 		if (!stepA || !stepB) {
 			return false;
