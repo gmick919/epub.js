@@ -470,7 +470,7 @@ class Mapping {
 	splitTextNodeIntoRanges(node, _splitter){
 		var ranges = [];
 		var textContent = node.textContent || "";
-		var text = textContent.trim();
+		var text = textContent;
 		var range;
 		var doc = node.ownerDocument;
 		var splitter = _splitter || " ";
@@ -491,7 +491,7 @@ class Mapping {
 
 		while ( pos != -1 ) {
 
-			pos = text.indexOf(splitter, pos + 1);
+			
 			if(pos > 0) {
 
 				if(range) {
@@ -502,6 +502,7 @@ class Mapping {
 				range = doc.createRange();
 				range.setStart(node, pos+1);
 			}
+			pos = text.indexOf(splitter, pos + 1);
 		}
 
 		if(range) {

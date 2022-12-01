@@ -5,6 +5,8 @@ const TEXT_NODE = 3;
 const COMMENT_NODE = 8;
 const DOCUMENT_NODE = 9;
 const POLY_SELECTORS = ["known", "unknown", "estimated", "out-of-vocab", "idiom", "compound", "highlight"].map(x => `polyLingVis-${x}`);
+const START_PREFIX = "LINGVIS_";
+const END_PREFIX = "_LINGVIS";
 
 /**
 	* Parsing and creation of EpubCFIs: http://www.idpf.org/epub/linking/cfi/epub-cfi.html
@@ -441,7 +443,7 @@ class EpubCFI {
 
 	pathTo(node, offset, ignoreClass) {
 		let oldNode;
-		const patchResult = this.pathToPatchBefore(node);
+		const patchResult = this.pathToPatchBefore(node, offset);
 		// After we get patched dom we need to replace 'node' and 'offset' params with
 		// patched values (without lingVisInjection), to do this we need find in sanitized dom our node and offset
 		if (patchResult && patchResult[1]) {
@@ -455,11 +457,12 @@ class EpubCFI {
 				}
 			}
 			oldNode = node;
-			const originalText = oldNode.nodeValue.substring(8, node.nodeValue.length - 8);
+			const originalText = oldNode.nodeValue.substring(START_PREFIX.length + offset, node.nodeValue.length - END_PREFIX.length);
 			node = res;
-			offset = node.nodeValue.indexOf(oldNode.nodeValue);
-			node.nodeValue = node.nodeValue.replace(oldNode.nodeValue, originalText);
-			oldNode.nodeValue = originalText;
+			const oldNodeValue = oldNode.nodeValue.slice(offset);
+			offset = node.nodeValue.indexOf(oldNodeValue);
+			node.nodeValue = node.nodeValue.replace(oldNodeValue, originalText);
+			oldNode.nodeValue = oldNode.nodeValue.replace(START_PREFIX, "").replace(END_PREFIX, "");
 		}
 		var segment = {
 			steps: [],
@@ -515,7 +518,7 @@ class EpubCFI {
 		}
 	}
 	
-	pathToPatchBefore(node) {
+	pathToPatchBefore(node, offset) {
 		// 1. Check if the node is a child of a lingVisElement or a lingVisElement itself 
 		if (node.nodeType === TEXT_NODE 
 			&& !this.isLingVisElement(node.parentNode) 
@@ -532,7 +535,9 @@ class EpubCFI {
 		// 3. Here is parentNode is the parent of highlighted block)
 		// Create a copy of parentNode sanitize it and replaceWith itself
 		// Also add to text node a special prefix and suffix (LINGVIS_%%%_LINGVIS);
-		node.nodeValue = `LINGVIS_${node.nodeValue}_LINGVIS`;
+		const textBefore = node.nodeValue.slice(0, offset);
+		const textAfter = node.nodeValue.slice(offset);
+		node.nodeValue = `${textBefore}${START_PREFIX}${textAfter}${END_PREFIX}`;
 		const copy = parentNode.cloneNode(true);
 		this.sanitizeElementFromPolyLingVis(copy);
 		parentNode.replaceWith(copy);
@@ -541,7 +546,7 @@ class EpubCFI {
 	
 	sanitizeElementFromPolyLingVis(element) {
 		element.querySelectorAll(
-			POLY_SELECTORS.map(x=>`.${x}`).join(', ')
+			POLY_SELECTORS.map(x=>`.${x}`).join(", ")
 		).forEach((el) => {
 			el.outerHTML = el.innerText;
 		});
