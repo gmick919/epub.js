@@ -915,6 +915,7 @@ class EpubCFI {
 		var len = steps.length;
 		var i;
 
+		let patchResult;
 		for (i = 0; i < steps.length; i++) {
 			step = steps[i];
 
@@ -925,10 +926,12 @@ class EpubCFI {
 					container = doc.getElementById(step.id);
 				}
 				else {
-					children = container.children || findChildren(container);
-					if (i === len - 2) {
-						this.walkToNodePatch(steps, step, children, i, len);
+					let result = this.walkToNodePatch(steps, step, container);
+					if (result && !patchResult){
+						patchResult = result;
+						container = result[0];
 					}
+					children = container.children || findChildren(container);
 					container = children[step.index];
 				}
 			} else if(step.type === "text") {
@@ -942,50 +945,45 @@ class EpubCFI {
 			}
 
 		}
-
-		return container;
-	}
-	
-	walkToNodePatch(steps, step, children, index){
-		if (!children) return;
-		const nextElement = children[step.index];
-		const afterNextStep = steps[index + 1];
-		if (!nextElement) return;
-		const nextElementNodes = nextElement.children || findChildren(nextElement);
-		const isPolyLingVis = [...nextElementNodes].some(x => [...x.classList].some(el => el.includes("polyLingVis")));
-		// 1. Found a polyLingVis parent by checking if some children have the class polyLingVis
-		let notOurElementIndex = 0;
-		if (isPolyLingVis) {
-			let textSize = 0;
-			let foundedNode = null;
-			// 2. Get the node that comes exactly after the path offset 
-			for (const node of nextElement.childNodes) {
-				if (node.nodeType === TEXT_NODE) {
-					textSize += node.textContent.length;
-				} else {
-					textSize += node.innerText.length;
-				}
-				if (node.nodeType !== TEXT_NODE && !this.isLingVisElement(node)){
-					textSize = 0;
-					notOurElementIndex++;
-				}
-				if (notOurElementIndex === afterNextStep.index && textSize >= this.path.terminal.offset) {
-					foundedNode = node.nextSibling;
+		
+		if (patchResult && patchResult[0] && patchResult[1]) {
+			const parentCopy = patchResult[0];
+			const textNodes = this.getAllTextNodes(parentCopy);
+			const nodeIndex = textNodes.indexOf(container);
+			const nodesBefore = textNodes.slice(0, nodeIndex);
+			const textCountBefore = nodesBefore.reduce((acc, node) => acc + node.nodeValue.length, 0)+this.path.terminal.offset;
+			
+			const originalParent = patchResult[1];
+			const originalTextNodes = this.getAllTextNodes(originalParent);
+			let count = 0;
+			for (let i = 0; i < originalTextNodes.length; i++) {
+				count += originalTextNodes[i].nodeValue.length;
+				if (count > textCountBefore) {
+					container = originalTextNodes[i];
 					break;
 				}
 			}
-			
-			if (foundedNode) {
-				// 3. After getting the node, put it in the steps array and nullify offset 
-				const indexNode = [...nextElementNodes].findIndex(x => x === foundedNode);
-				steps.splice(index + 1, 0, { type: "element", index: indexNode, id: null });
-				steps[index+2].index = 0;
-				this.path.terminal.offset = 0;
-			}
+			parentCopy.replaceWith(originalParent);
 		}
-
+		return container;
 	}
 	
+	walkToNodePatch(steps, step, container) {
+		if (!container) return;
+		if (![...container.childNodes].some(node=>this.isLingVisElement(node))) return;
+		const copy = container.cloneNode(true);
+		this.sanitizeElementFromPolyLingVis(copy);
+		container.replaceWith(copy);
+		return [copy, container];
+	}
+	
+	getAllTextNodes(container) {
+		const walk = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+		let res = [];
+		let n;
+		while (n = walk.nextNode()) { res.push(n); }
+		return res;
+	}
 
 	findNode(steps, _doc, ignoreClass) {
 		var doc = _doc || document;
