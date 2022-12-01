@@ -206,6 +206,63 @@ class Mapping {
 		return this.findTextStartRange($prev, start, end);
 	}
 
+	// This function needs only for testing purposes
+	// It calls directly from user's code, and it's not a part of the API
+	// It returns an element that is located between start and end positions inside given root element
+	// Code is copied from findStart() and removed unnecessary parts
+	findStartForTesting(root, start, end){
+		var stack = [root];
+		var $el;
+		var found;
+		var $prev = root;
+		while (stack.length) {
+			$el = stack.shift();
+			found = this.walk($el, (node) => {
+				var left, right, top, bottom;
+				var elPos;
+				elPos = nodeBounds(node);
+				if (this.horizontal && this.direction === "ltr") {
+					left = this.horizontal ? elPos.left : elPos.top;
+					right = this.horizontal ? elPos.right : elPos.bottom;
+					if( left >= start && left <= end ) {
+						return node;
+					} else if (right > start) {
+						return node;
+					} else {
+						$prev = node;
+						stack.push(node);
+					}
+				} else if (this.horizontal && this.direction === "rtl") {
+					left = elPos.left;
+					right = elPos.right;
+					if( right <= end && right >= start ) {
+						return node;
+					} else if (left < end) {
+						return node;
+					} else {
+						$prev = node;
+						stack.push(node);
+					}
+				} else {
+					top = elPos.top;
+					bottom = elPos.bottom;
+					if( top >= start && top <= end ) {
+						return node;
+					} else if (bottom > start) {
+						return node;
+					} else {
+						$prev = node;
+						stack.push(node);
+					}
+				}
+			});
+			if(found) {
+				return found;
+			}
+		}
+		return $prev;
+	}
+
 	/**
 	 * Find End Range
 	 * @private

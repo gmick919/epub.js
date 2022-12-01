@@ -740,6 +740,48 @@ class DefaultViewManager {
 
 		return sections;
 	}
+	
+	// This function needs only for testing purposes
+	// It calls directly from user's code, and it's not a part of the API
+	// It returns document.body and (start,end) coordinates of page
+	// Code is copied from paginatedLocation() and removed unnecessary parts
+	paginatedLocationForTesting(){
+		let visible = this.visible();
+		let container = this.container.getBoundingClientRect();
+		let left = 0;
+		let used = 0;
+		if(this.settings.fullsize) {
+			left = window.scrollX;
+		}
+		let sections = visible.map((view) => {
+			let offset;
+			let position = view.position();
+			// Find mapping
+			let start;
+			let end;
+			let pageWidth;
+			if (this.settings.direction === "rtl") {
+				offset = container.right - left;
+				pageWidth = Math.min(Math.abs(offset - position.left), this.layout.width) - used;
+				end = position.width - (position.right - offset) - used;
+				start = end - pageWidth;
+			} else {
+				offset = container.left + left;
+				pageWidth = Math.min(position.right - offset, this.layout.width) - used;
+				start = offset - position.left + used;
+				end = start + pageWidth;
+			}
+			used += pageWidth;
+
+			let contents = view.contents && view.contents.document ? view.contents.document.body : false;
+			return { 
+				contents,
+				start,
+				end
+			};
+		});
+		return sections;
+	}
 
 	paginatedLocation(){
 		let visible = this.visible();
