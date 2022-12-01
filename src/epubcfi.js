@@ -915,10 +915,9 @@ class EpubCFI {
 		var len = steps.length;
 		var i;
 
-		let patchResult;
+		let patchResult = this.walkToNodePatch(steps, container);
 		for (i = 0; i < steps.length; i++) {
 			step = steps[i];
-
 			if(step.type === "element") {
 				//better to get a container using id as some times step.index may not be correct
 				//For ex.https://github.com/futurepress/epub.js/issues/561
@@ -926,11 +925,6 @@ class EpubCFI {
 					container = doc.getElementById(step.id);
 				}
 				else {
-					let result = this.walkToNodePatch(steps, step, container);
-					if (result && !patchResult){
-						patchResult = result;
-						container = result[0];
-					}
 					children = container.children || findChildren(container);
 					container = children[step.index];
 				}
@@ -960,6 +954,7 @@ class EpubCFI {
 				count += originalTextNodes[i].nodeValue.length;
 				if (count > textCountBefore) {
 					container = originalTextNodes[i];
+					this.path.terminal.offset = container.nodeValue.length - (count - textCountBefore);
 					break;
 				}
 			}
@@ -968,9 +963,23 @@ class EpubCFI {
 		return container;
 	}
 	
-	walkToNodePatch(steps, step, container) {
+	walkToNodePatch(steps, container) {
 		if (!container) return;
-		if (![...container.childNodes].some(node=>this.isLingVisElement(node))) return;
+		let found = false;
+		for (let i = 0; i < steps.length; i++){
+			const step = steps[i];
+			if (step.type === "element") {
+				const children = container.children || findChildren(container);
+				container = children[step.index];
+				if (container.childNodes) {
+					if ([...container.childNodes].some(node => this.isLingVisElement(node))) {
+						found = true;
+						break;
+					}
+				}
+			}
+		}
+		if (!found) return;
 		const copy = container.cloneNode(true);
 		this.sanitizeElementFromPolyLingVis(copy);
 		container.replaceWith(copy);
