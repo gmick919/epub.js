@@ -467,49 +467,42 @@ class Mapping {
 	 * @param {string} [_splitter] what to split on
 	 * @return {Range[]}
 	 */
-	splitTextNodeIntoRanges(node, _splitter){
-		var ranges = [];
-		var textContent = node.textContent || "";
-		var text = textContent;
-		var range;
-		var doc = node.ownerDocument;
-		var splitter = _splitter || " ";
+	splitTextNodeIntoRanges(node, _splitter) {
+		const textContent = node.textContent || "";
+		const doc = node.ownerDocument;
+		const splitter = _splitter || " ";
+		const ranges = [];
 
-		var pos = text.indexOf(splitter);
+		if (textContent.length === 0) {
+			return ranges;
+		}
 
-		if(pos === -1 || node.nodeType != Node.TEXT_NODE) {
-			range = doc.createRange();
+		if (textContent.indexOf(splitter) === -1 || node.nodeType !== Node.TEXT_NODE) {
+			const range = doc.createRange();
 			range.selectNodeContents(node);
 			return [range];
 		}
 
-		range = doc.createRange();
-		range.setStart(node, 0);
-		range.setEnd(node, pos);
-		ranges.push(range);
-		range = false;
-
-		while ( pos != -1 ) {
-
-			
-			if(pos > 0) {
-
-				if(range) {
-					range.setEnd(node, pos);
-					ranges.push(range);
-				}
-
-				range = doc.createRange();
-				range.setStart(node, pos+1);
+		let pos = -1;
+		for (let i = 0; i < textContent.length; i++) {
+			if (textContent[i] !== splitter && pos === -1) {
+				pos = i;
 			}
-			pos = text.indexOf(splitter, pos + 1);
+			if (textContent[i] === splitter && pos !== -1) {
+				const range = doc.createRange();
+				range.setStart(node, pos);
+				range.setEnd(node, i);
+				ranges.push(range);
+				pos = -1;
+			}
 		}
 
-		if(range) {
-			range.setEnd(node, text.length);
-			ranges.push(range);
+		if (pos !== -1) {
+			const lastRange = doc.createRange();
+			lastRange.setStart(node, pos);
+			lastRange.setEnd(node, textContent.length);
+			ranges.push(lastRange);
 		}
-
 		return ranges;
 	}
 
