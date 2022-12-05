@@ -459,7 +459,10 @@ class Mapping {
 		return ranges[ranges.length-1];
 
 	}
-
+	
+	// This function was rewritten due to an incorrect behaviour described in 
+	// test/mapping.js (all cases except the first one have wrong results)
+	// So now it only returns ranges which position are words (without spaces) 
 	/**
 	 * Split up a text node into ranges for each word
 	 * @private
