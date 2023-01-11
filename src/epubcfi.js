@@ -4,7 +4,7 @@ const ELEMENT_NODE = 1;
 const TEXT_NODE = 3;
 const COMMENT_NODE = 8;
 const DOCUMENT_NODE = 9;
-const POLY_SELECTORS = ["known", "unknown", "estimated", "out-of-vocab", "idiom", "compound", "highlight"].map(x => `polyLingVis-${x}`);
+const POLY_SELECTORS = ["known", "unknown", "estimated", "out-of-vocab", "idiom", "compound", "highlight", "chunk"].map(x => `polyLingVis-${x}`);
 const START_PREFIX = "LINGVIS_";
 const END_PREFIX = "_LINGVIS";
 
@@ -548,7 +548,7 @@ class EpubCFI {
 		element.querySelectorAll(
 			POLY_SELECTORS.map(x=>`.${x}`).join(", ")
 		).forEach((el) => {
-			el.outerHTML = el.innerText;
+			el.outerHTML = el.innerHTML;
 		});
 	}
 	
