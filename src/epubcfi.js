@@ -543,11 +543,24 @@ class EpubCFI {
 		parentNode.replaceWith(copy);
 		return [parentNode, copy];
 	}
+
+	getElementChildDepth(element) {
+		let depth = 0;
+		let currentElement = element;
+		while (currentElement.firstElementChild) {
+			depth++;
+			currentElement = currentElement.firstElementChild;
+		}
+		return depth;
+	}
 	
 	sanitizeElementFromPolyLingVis(element) {
-		element.querySelectorAll(
-			POLY_SELECTORS.map(x=>`.${x}`).join(", ")
-		).forEach((el) => {
+		const lingVisElements = [...element.querySelectorAll(POLY_SELECTORS.map(x => `.${x}`).join(", "))];
+		lingVisElements.forEach(el => {
+			el.childDepth = this.getElementChildDepth(el);
+		});
+		lingVisElements.sort((a, b) => a.childDepth - b.childDepth);
+		lingVisElements.forEach((el) => {
 			el.outerHTML = el.innerHTML;
 		});
 	}
