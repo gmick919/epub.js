@@ -85,6 +85,13 @@ class Url {
 		}
 
 		fullpath = path.resolve(this.directory, what);
+		
+		// This is strange behaviour (tested on Iphone 6s, iOS 14.0.1, webview)
+		// https://url.spec.whatwg.org/#origin
+		// If pathURL is failure, return new opaque origin (serialized as string "null")
+		if (this.origin === "null") {
+			return fullpath;
+		}
 		return this.origin + fullpath;
 	}
 
