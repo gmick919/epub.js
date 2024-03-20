@@ -437,7 +437,12 @@ class DefaultViewManager {
 		if(this.settings.axis === "vertical") {
 			this.scrollBy(0, bounds.heightDelta, true);
 		} else {
-			this.scrollBy(bounds.widthDelta, 0, true);
+			// Sometimes on the first page in chapter when rendition.prev() is called, 
+			// rendered page doesn't go to the last page of the previous chapter as expected. 
+			// So exactly for this case, we can set scrollLeft to maximum value to fix it.
+			// This fix is working because this part of code is executed exactly 
+			// when we are on the first page of the chapter
+			this.scrollTo(this.container.scrollWidth - this.container.clientWidth, 0, true);
 		}
 
 	}
