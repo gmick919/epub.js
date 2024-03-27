@@ -105,7 +105,7 @@ class PageList {
 		var pageText = navLabelText.textContent;
 		var content = qs(item, "content");
 
-		var href = content.getAttribute("src");
+		var href = content && content.getAttribute("src");
 		var page = parseInt(pageText, 10);
 
 		return {

@@ -310,7 +310,7 @@ class Navigation {
 	ncxItem(item){
 		var id = item.getAttribute("id") || false,
 				content = qs(item, "content"),
-				src = content.getAttribute("src"),
+				src = content && content.getAttribute("src"),
 				navLabel = qs(item, "navLabel"),
 				text = navLabel.textContent ? navLabel.textContent : "",
 				subitems = [],
