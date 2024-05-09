@@ -934,7 +934,7 @@ class EpubCFI {
 			if(step.type === "element") {
 				//better to get a container using id as some times step.index may not be correct
 				//For ex.https://github.com/futurepress/epub.js/issues/561
-				if(step.id) {
+				if(step.id && doc.querySelectorAll(`#${step.id}`).length === 1) {
 					container = doc.getElementById(step.id);
 				}
 				else {
