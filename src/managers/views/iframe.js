@@ -427,6 +427,7 @@ class IframeView {
 				return loaded;
 			}
 
+			contents = contents.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
 			this.iframe.contentDocument.open();
 			// For Cordova windows platform
 			if(window.MSApp && MSApp.execUnsafeLocalFunction) {
