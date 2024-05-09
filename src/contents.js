@@ -160,6 +160,13 @@ class Contents {
 
 		if (border && border.width) {
 			width += border.width;
+			// Epub.js problem:
+			// Position absolute in a direct child of body causes infinite recursion
+			// because border increases width triggering reframe
+			let computed = content.children[0] && getComputedStyle(content.children[0]);
+			if (computed && (computed.position === "absolute" || computed.position === "fixed" ) && width !== border.width) {
+				width -= border.width;
+			}
 		}
 
 		return Math.round(width);
