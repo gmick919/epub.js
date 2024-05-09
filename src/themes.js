@@ -133,6 +133,10 @@ class Themes {
 
 		contents = this.rendition.getContents();
 		contents.forEach( (content) => {
+			let previousStyleSheet = content._getStylesheetNode(prev);
+			if (previousStyleSheet) {
+				previousStyleSheet.remove();
+			}
 			content.removeClass(prev);
 			content.addClass(name);
 		});
